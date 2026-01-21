@@ -1,12 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authClient } from '@/lib/authClient';
 import { useAuth } from '@/providers/AuthProvider';
 
-export default function VerifyEmailPage() {
+function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
@@ -71,6 +71,92 @@ export default function VerifyEmailPage() {
   };
 
   return (
+    <main className="p-8 sm:p-10 flex flex-col gap-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.35em] text-emerald-300 mb-2">Activate invite</p>
+        <h2 className="text-3xl font-semibold text-white">Finish setting up your account</h2>
+        <p className="text-sm text-slate-300">Choose a password to access Pepper. You'll be redirected to your dashboard after activation.</p>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">Validating invite…</div>
+      ) : (
+        <>
+          {statusMessage && (
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm ${
+                statusMessage.type === 'error'
+                  ? 'border-rose-400/60 bg-rose-500/10 text-rose-200'
+                  : 'border-emerald-400/60 bg-emerald-500/10 text-emerald-100'
+              }`}
+            >
+              {statusMessage.text}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <label className="block text-sm space-y-1">
+              <span className="text-slate-300">Email</span>
+              <input
+                type="email"
+                value={email}
+                readOnly
+                className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white"
+              />
+            </label>
+            <label className="block text-sm space-y-1">
+              <span className="text-slate-300">Name</span>
+              <input
+                value={displayName}
+                readOnly
+                className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white"
+              />
+            </label>
+            <label className="block text-sm space-y-1">
+              <span className="text-slate-300">Phone (optional)</span>
+              <input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white focus:border-emerald-400 focus:outline-none"
+              />
+            </label>
+            <label className="block text-sm space-y-1">
+              <span className="text-slate-300">Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white focus:border-emerald-400 focus:outline-none"
+                required
+              />
+            </label>
+            <label className="block text-sm space-y-1">
+              <span className="text-slate-300">Confirm password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white focus:border-emerald-400 focus:outline-none"
+                required
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={submitting || !token}
+              className="w-full rounded-2xl bg-[linear-gradient(135deg,_#2af598,_#009efd)] text-slate-900 font-semibold py-3 shadow-[0_18px_45px_rgba(3,170,220,0.35)] hover:brightness-110 transition disabled:opacity-60"
+            >
+              {submitting ? 'Activating…' : 'Activate account'}
+            </button>
+          </form>
+        </>
+      )}
+    </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
     <div
       className="min-h-screen text-slate-100 flex items-center justify-center p-6 bg-cover bg-center"
       style={{ backgroundImage: 'url(/assets/images/login_background.png)' }}
@@ -91,7 +177,7 @@ export default function VerifyEmailPage() {
               Personalize your workspace, connect Google Calendar, and let Pepper brief you on every new hearing automatically.
             </p>
             <div className="mt-6 space-y-4 bg-white/5 rounded-2xl p-4 border border-white/10">
-              <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">What’s next</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">What's next</p>
               <ul className="space-y-2 text-sm text-slate-200/80">
                 <li>Connect your calendar & DMS integrations.</li>
                 <li>Invite your team and assign permissions.</li>
@@ -102,89 +188,10 @@ export default function VerifyEmailPage() {
           <p className="text-xs text-slate-400">© {new Date().getFullYear()} Pepper AI Labs · Secure cloud infrastructure</p>
         </aside>
 
-        <main className="p-8 sm:p-10 flex flex-col gap-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-emerald-300 mb-2">Activate invite</p>
-            <h2 className="text-3xl font-semibold text-white">Finish setting up your account</h2>
-            <p className="text-sm text-slate-300">Choose a password to access Pepper. You’ll be redirected to your dashboard after activation.</p>
-          </div>
-
-          {loading ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">Validating invite…</div>
-          ) : (
-            <>
-              {statusMessage && (
-                <div
-                  className={`rounded-2xl border px-4 py-3 text-sm ${
-                    statusMessage.type === 'error'
-                      ? 'border-rose-400/60 bg-rose-500/10 text-rose-200'
-                      : 'border-emerald-400/60 bg-emerald-500/10 text-emerald-100'
-                  }`}
-                >
-                  {statusMessage.text}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <label className="block text-sm space-y-1">
-                  <span className="text-slate-300">Email</span>
-                  <input
-                    type="email"
-                    value={email}
-                    readOnly
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white"
-                  />
-                </label>
-                <label className="block text-sm space-y-1">
-                  <span className="text-slate-300">Name</span>
-                  <input
-                    value={displayName}
-                    readOnly
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white"
-                  />
-                </label>
-                <label className="block text-sm space-y-1">
-                  <span className="text-slate-300">Phone (optional)</span>
-                  <input
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white focus:border-emerald-400 focus:outline-none"
-                  />
-                </label>
-                <label className="block text-sm space-y-1">
-                  <span className="text-slate-300">Password</span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white focus:border-emerald-400 focus:outline-none"
-                    required
-                  />
-                </label>
-                <label className="block text-sm space-y-1">
-                  <span className="text-slate-300">Confirm password</span>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white focus:border-emerald-400 focus:outline-none"
-                    required
-                  />
-                </label>
-
-                <button
-                  type="submit"
-                  disabled={submitting || !token}
-                  className="w-full rounded-2xl bg-[linear-gradient(135deg,_#2af598,_#009efd)] text-slate-900 font-semibold py-3 shadow-[0_18px_45px_rgba(3,170,220,0.35)] hover:brightness-110 transition disabled:opacity-60"
-                >
-                  {submitting ? 'Activating…' : 'Activate account'}
-                </button>
-              </form>
-            </>
-          )}
-        </main>
+        <Suspense fallback={<div className="p-8 sm:p-10"><div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">Loading...</div></div>}>
+          <VerifyEmailForm />
+        </Suspense>
       </div>
     </div>
   );
 }
-

@@ -951,7 +951,10 @@ export default function PepperAssistant() {
     streamAbortRef.current = controller;
 
     try {
-      // Send files and text together to backend - backend will process both and return one response
+      // Ensure threadIdToUse is not null (should be guaranteed by code above)
+      if (!threadIdToUse) {
+        throw new Error('Thread ID is required but was not created');
+      }
       const finalReply = await extractFilesAndChat({
         token,
         files: pendingFiles,
@@ -1148,7 +1151,7 @@ export default function PepperAssistant() {
     // Update thread in local state (add if new, update if exists)
     setThreads((prev) => {
       const threadExists = prev.some(t => t.id === threadId);
-      
+
       if (!threadExists) {
         // Add thread to local state first
         return [
@@ -4105,7 +4108,7 @@ export default function PepperAssistant() {
               }))
             }
             rows={isModal ? (isCompact ? 2 : 3) : 2}
-            style={{ 
+            style={{
               overflowY: inputValues[source].includes('\n') ? 'auto' : 'hidden',
               color: '#000000',
             }}

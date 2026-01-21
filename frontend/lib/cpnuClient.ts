@@ -23,6 +23,7 @@ export interface CPNUSyncResponse {
       demandante?: string;
       demandado?: string;
       defensorPrivado?: string;
+      defensorPublico?: string;  // ← Add this line
     };
     actuacionesCount: number;
   };
@@ -46,6 +47,7 @@ export interface CPNUPreviewResponse {
       demandante?: string;
       demandado?: string;
       defensorPrivado?: string;
+      defensorPublico?: string;  // ← Add this line
     };
     actuacionesCount: number;
     actuaciones?: Array<{

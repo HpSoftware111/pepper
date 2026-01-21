@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import { useMCDData } from '@/hooks/useMCDData';
 import { mcdClient, type MasterCaseDocument, type MCDStatus } from '@/lib/mcdClient';
-import { dashboardAgentClient, type DashboardTemplate } from '@/lib/dashboardAgentClient';
+import { dashboardAgentClient } from '@/lib/dashboardAgentClient';
+import type { DashboardTemplate } from '@/lib/dashboardTemplate';
 import { useThemeMode } from '@/providers/ThemeProvider';
 import { useRouter } from 'next/navigation';
 
@@ -282,8 +283,8 @@ export default function Kanban() {
                                             draggable={!isUpdatingCase}
                                             onDragStart={() => handleDragStart(case_.id)}
                                             className={`p-4 rounded-lg border cursor-move transition-all ${isLight
-                                                    ? 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
-                                                    : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
+                                                ? 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
+                                                : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
                                                 } ${isDragging ? 'opacity-50' : ''} ${isUpdatingCase ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                                             onClick={() => !isUpdatingCase && handleCaseClick(case_.case_id, case_.displayName)}
                                         >
@@ -317,10 +318,10 @@ export default function Kanban() {
 
                                             {case_.upcomingDeadline && (
                                                 <div className={`mt-2 text-xs font-medium ${case_.upcomingDeadline === 'Overdue' || case_.upcomingDeadline === 'Today'
-                                                        ? 'text-red-600'
-                                                        : case_.upcomingDeadline === 'Tomorrow'
-                                                            ? 'text-orange-600'
-                                                            : 'text-emerald-600'
+                                                    ? 'text-red-600'
+                                                    : case_.upcomingDeadline === 'Tomorrow'
+                                                        ? 'text-orange-600'
+                                                        : 'text-emerald-600'
                                                     }`}>
                                                     📅 {case_.upcomingDeadline}
                                                 </div>

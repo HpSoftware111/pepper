@@ -23,7 +23,8 @@ const computeDeviceFingerprint = async () => {
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   ].join('|');
   if (!window.crypto?.subtle) {
-    return hexFromBuffer(new TextEncoder().encode(fingerprint));
+    const encoded = new TextEncoder().encode(fingerprint);
+    return hexFromBuffer(encoded.buffer);
   }
   const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(fingerprint));
   return hexFromBuffer(digest);

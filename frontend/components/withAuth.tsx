@@ -4,7 +4,7 @@ import { ComponentType, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 
-export function withAuth<P>(WrappedComponent: ComponentType<P>) {
+export function withAuth<P extends object = {}>(WrappedComponent: ComponentType<P>) {
   function AuthenticatedComponent(props: P) {
     const { user, isLoading } = useAuth();
     const router = useRouter();
@@ -26,7 +26,7 @@ export function withAuth<P>(WrappedComponent: ComponentType<P>) {
       );
     }
 
-    return <WrappedComponent {...props} />;
+    return <WrappedComponent {...(props as P)} />;
   }
 
   AuthenticatedComponent.displayName = `withAuth(${WrappedComponent.displayName || WrappedComponent.name || 'Component'})`;

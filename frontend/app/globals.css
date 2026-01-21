@@ -1,0 +1,307 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 236, 248, 255;
+  --background-start: #020617;
+  /* near-black */
+  --background-mid: #0b1f3a;
+  /* deep navy */
+  --background-end: #0a3b6f;
+  /* blue */
+
+  --panel-surface: #0c1730;
+  --panel-border: #223457;
+
+  --accent-green: #18d27a;
+  --accent-green-soft: #34e3a0;
+  --accent-blue: #2f7bff;
+  --accent-purple: #a855f7;
+  --accent-yellow: #facc15;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  /* Exact body background gradient from design */
+  background: linear-gradient(135deg, #0e297d 0%, #0e3a5f 40%, #0e5e63 75%, #00976f 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, -system, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.theme-light,
+body[data-theme='light'] {
+  color: #0f172a;
+  background: linear-gradient(135deg, #f8fbff 0%, #eaf2ff 35%, #e0fff6 70%, #d3ffe9 100%);
+}
+
+body.theme-light .app-shell,
+body[data-theme='light'] .app-shell {
+  background: linear-gradient(135deg, #f7fbff 0%, #eef4ff 45%, #e5fff7 100%);
+}
+
+body.theme-light .glass-panel,
+body[data-theme='light'] .glass-panel {
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
+}
+
+body.theme-light *,
+body[data-theme='light'] * {
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(157, 163, 180, 0.116) inset;
+  -webkit-text-fill-color: rgb(0, 0, 0);
+  caret-color: rgb(200, 208, 228);
+  border-color: rgba(255, 255, 255, 0.863);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+body.theme-light input:-webkit-autofill,
+body.theme-light input:-webkit-autofill:hover,
+body.theme-light input:-webkit-autofill:focus,
+body.theme-light textarea:-webkit-autofill,
+body.theme-light textarea:-webkit-autofill:hover,
+body.theme-light textarea:-webkit-autofill:focus,
+body[data-theme='light'] input:-webkit-autofill,
+body[data-theme='light'] input:-webkit-autofill:hover,
+body[data-theme='light'] input:-webkit-autofill:focus,
+body[data-theme='light'] textarea:-webkit-autofill,
+body[data-theme='light'] textarea:-webkit-autofill:hover,
+body[data-theme='light'] textarea:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.9) inset;
+  -webkit-text-fill-color: #0f172a;
+}
+
+/* Fix for pasted text color in textareas - force black color regardless of theme */
+textarea {
+  color: #000000 !important;
+}
+
+/* Normalize select dropdowns for dark/light themes */
+select {
+  background-color: rgba(5, 12, 32, 0.85);
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.4);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23f8fafc' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: calc(100% - 0.9rem) 50%;
+}
+
+select option {
+  background-color: rgba(3, 9, 24, 0.95);
+  color: #f8fafc;
+}
+
+body.theme-light select,
+body.theme-light select option,
+body[data-theme='light'] select,
+body[data-theme='light'] select option {
+  background-color: #ffffff;
+  color: #0f172a;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%230f172a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Layout helpers */
+.app-shell {
+  @apply min-h-screen flex flex-col;
+}
+
+.glass-panel {
+  border-radius: 18px;
+  border: 1px solid rgba(55, 78, 120, 0.85);
+  box-shadow: 0 18px 35px rgba(3, 7, 18, 0.8);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Enhanced custom scrollbar for tables - more visible and intuitive */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+  background-clip: padding-box;
+}
+
+/* Light theme custom scrollbar */
+body.theme-light .custom-scrollbar::-webkit-scrollbar-track,
+body[data-theme='light'] .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+body.theme-light .custom-scrollbar::-webkit-scrollbar-thumb,
+body[data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+body.theme-light .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+body[data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+@keyframes voiceWave {
+
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.4;
+  }
+
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.chat-bubble {
+  animation: chatFade 0.45s ease;
+}
+
+@keyframes chatFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Markdown table styles */
+.markdown-table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.markdown-thead {
+  display: table-header-group;
+}
+
+.markdown-tbody {
+  display: table-row-group;
+}
+
+.markdown-tr {
+  display: table-row;
+}
+
+/* Dark theme table styles (default) */
+.markdown-th {
+  display: table-cell;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #eaf0fb;
+}
+
+.markdown-td {
+  display: table-cell;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #eaf0fb;
+}
+
+/* Light theme table styles */
+body.theme-light .markdown-th,
+body[data-theme='light'] .markdown-th {
+  background-color: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.15);
+  color: #0f172a;
+}
+
+body.theme-light .markdown-td,
+body[data-theme='light'] .markdown-td {
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+}
+
+/* Ensure tables are scrollable on small screens */
+.markdown-table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.markdown-table thead,
+.markdown-table tbody,
+.markdown-table tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.markdown-table th,
+.markdown-table td {
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Markdown paragraph spacing */
+.markdown-p {
+  margin: 0.5rem 0;
+}
+
+.markdown-p:first-child {
+  margin-top: 0;
+}
+
+.markdown-p:last-child {
+  margin-bottom: 0;
+}
+
+/* Markdown strong text */
+.markdown-strong {
+  font-weight: 600;
+}

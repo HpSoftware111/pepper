@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.log
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+*.env
+.env.local
+.env.production
+.env.development
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Serverless
+.serverless/
+.vercel/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Uploads (local development)
+uploads/
+temp/
+

@@ -2,12 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { getCasesBaseDir, isLambdaEnvironment } from './lambdaDetector.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
  * Get the base cases directory for a user
+ * Automatically uses /tmp in Lambda, relative path in EC2
+ * 
  * @param {string} userId - User ID
  * @returns {string} Path to user's cases directory
  */
@@ -18,12 +21,23 @@ export function getUserCasesDir(userId) {
         throw new Error('userId cannot be empty');
     }
     
-    const casesDir = path.join(__dirname, '..', 'cases', userIdStr);
-    console.log(`[caseFolderUtils] getUserCasesDir - userId: ${userIdStr}, path: ${casesDir}`);
+    // Get base cases directory (Lambda-aware)
+    const casesBaseDir = getCasesBaseDir();
+    const casesDir = path.join(casesBaseDir, userIdStr);
+    
+    const envContext = isLambdaEnvironment() ? 'Lambda' : 'EC2';
+    console.log(`[caseFolderUtils] getUserCasesDir (${envContext}) - userId: ${userIdStr}, path: ${casesDir}`);
     
     if (!fs.existsSync(casesDir)) {
         console.log(`[caseFolderUtils] Creating cases directory: ${casesDir}`);
-        fs.mkdirSync(casesDir, { recursive: true });
+        try {
+            fs.mkdirSync(casesDir, { recursive: true });
+        } catch (error) {
+            // In Lambda, /tmp might already exist from previous invocation
+            if (error.code !== 'EEXIST') {
+                throw error;
+            }
+        }
     }
     
     return casesDir;

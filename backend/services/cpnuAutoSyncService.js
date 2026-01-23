@@ -8,6 +8,7 @@ import { scrapeCPNU, detectActuacionesChanges } from './cpnuService.js';
 import { trackResourceUsage } from './resourceTrackingService.js';
 import { getCaseFolder, getAllCaseFolders } from '../utils/caseFolderUtils.js';
 import { syncCPNUActuacionesToCalendar } from './calendarSyncService.js';
+import { getCasesBaseDir, isLambdaEnvironment } from '../utils/lambdaDetector.js';
 import fs from 'fs';
 import path from 'path';
 import MasterCaseDocument from '../models/MasterCaseDocument.js';
@@ -90,9 +91,15 @@ async function findFileBasedCPNUCases() {
   const cases = [];
 
   try {
-    // Get all user case directories
-    const casesBaseDir = path.join(process.cwd(), 'cases');
+    // Get all user case directories (Lambda-aware: uses /tmp in Lambda, relative path in EC2)
+    const casesBaseDir = getCasesBaseDir();
+    
+    // In Lambda, file-based cases won't exist (they're on EC2 filesystem)
+    // This function will return empty array, which is fine - only MCD cases will be processed
     if (!fs.existsSync(casesBaseDir)) {
+      if (isLambdaEnvironment()) {
+        console.log('[CPNU Auto-Sync] Lambda environment: file-based cases not available (using /tmp), will process MCD cases only');
+      }
       return cases;
     }
 

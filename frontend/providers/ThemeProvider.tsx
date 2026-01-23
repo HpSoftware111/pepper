@@ -17,7 +17,7 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [layoutDensity, setLayoutDensity] = useState<LayoutDensity>('cozy');
-
+  // test
   useEffect(() => {
     if (typeof document === 'undefined') {
       return;

@@ -6,7 +6,8 @@ on:
       - main
       - production
     paths:
-      - 'pepper-2.0/**'
+      - 'frontend/**'
+      - 'backend/**'
       - '.github/workflows/deploy-pepper-2.0.yml'
   workflow_dispatch:
 
@@ -29,11 +30,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Install frontend dependencies
-        working-directory: pepper-2.0/frontend
+        working-directory: frontend
         run: npm ci
 
       - name: Build frontend
-        working-directory: pepper-2.0/frontend
+        working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://pepper20.emtechnologysolutions.com' }}
         run: npm run build
@@ -99,7 +100,7 @@ jobs:
             --exclude='.next' \
             --exclude='frontend' \
             -e "ssh -o StrictHostKeyChecking=no" \
-            pepper-2.0/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ env.EC2_APP_PATH }}/
+            . ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ env.EC2_APP_PATH }}/
 
       - name: Install backend dependencies
         run: |

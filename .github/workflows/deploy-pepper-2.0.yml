@@ -124,27 +124,38 @@ jobs:
           EOF
 
       - name: Wait for application startup
-        run: sleep 5
+        run: sleep 10
 
       - name: Health check
         id: health
         run: |
-          HEALTH=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "curl -s http://localhost:3001/health || echo 'FAILED'")
-          echo "health_response=$HEALTH" >> $GITHUB_OUTPUT
-          echo "Health check response: $HEALTH"
-          
-          if echo "$HEALTH" | grep -q "OK"; then
-            echo "✅ Health check passed"
-            exit 0
-          else
-            echo "❌ Health check failed"
-            exit 1
-          fi
+          echo "🔍 Waiting for backend to be ready..."
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            HEALTH=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health 2>/dev/null || echo '000'")
+            if [ "$HEALTH" = "200" ]; then
+              BODY=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "curl -s http://localhost:3001/health")
+              echo "health_response=$BODY" >> $GITHUB_OUTPUT
+              echo "Health check response: $BODY"
+              echo "✅ Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "   Attempt $i: HTTP $HEALTH, retrying in 5s..."
+            sleep 5
+          done
+          echo "health_response=FAILED (no response after 10 attempts)" >> $GITHUB_OUTPUT
+          echo "❌ Health check failed: backend did not respond within ~60s"
+          exit 1
 
       - name: Get PM2 logs on failure
         if: failure()
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "pm2 logs pepper-2.0-backend --lines 50 --nostream"
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            echo "=== PM2 status ==="
+            pm2 status
+            echo ""
+            echo "=== PM2 logs (last 50 lines) ==="
+            pm2 logs pepper-2.0-backend --lines 50 --nostream
+          EOF
 
       - name: Deployment summary
         if: success()

@@ -40,6 +40,18 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://pepper20.emtechnologysolutions.com' }}
         run: npm run build
 
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: |
+            frontend/.next
+            frontend/public
+            frontend/package.json
+            frontend/package-lock.json
+            frontend/next.config.js
+          retention-days: 1
+
   deploy-backend:
     name: Deploy Backend to EC2
     runs-on: ubuntu-latest
@@ -48,6 +60,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download frontend build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -72,23 +90,36 @@ jobs:
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
             
             if [ -d "${{ env.EC2_APP_PATH }}/backend" ]; then
-              echo "📦 Creating backup..."
+              echo "📦 Creating backend backup..."
               tar -czf "$BACKUP_DIR/backend-$TIMESTAMP.tar.gz" -C "${{ env.EC2_APP_PATH }}/backend" \
                 --exclude='node_modules' \
                 --exclude='.git' \
                 --exclude='cases' \
                 --exclude='*.log' \
                 .
-              echo "✅ Backup created: backend-$TIMESTAMP.tar.gz"
+              echo "✅ Backend backup created: backend-$TIMESTAMP.tar.gz"
               
               # Keep only last 5 backups
               ls -t "$BACKUP_DIR"/backend-*.tar.gz 2>/dev/null | tail -n +6 | xargs -r rm || true
             fi
+            
+            if [ -d "${{ env.EC2_APP_PATH }}/frontend" ]; then
+              echo "📦 Creating frontend backup..."
+              tar -czf "$BACKUP_DIR/frontend-$TIMESTAMP.tar.gz" -C "${{ env.EC2_APP_PATH }}/frontend" \
+                --exclude='node_modules' \
+                --exclude='.git' \
+                --exclude='.next' \
+                .
+              echo "✅ Frontend backup created: frontend-$TIMESTAMP.tar.gz"
+              
+              # Keep only last 5 backups
+              ls -t "$BACKUP_DIR"/frontend-*.tar.gz 2>/dev/null | tail -n +6 | xargs -r rm || true
+            fi
           EOF
 
-      - name: Stop PM2 process
+      - name: Stop PM2 processes
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "pm2 stop pepper-2.0-backend || true"
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "pm2 stop pepper-2.0-backend pepper-2.0-frontend || true"
 
       - name: Sync backend files to EC2
         run: |
@@ -111,6 +142,25 @@ jobs:
             exit 1
           fi
           echo "✅ backend/.env exists"
+
+      - name: Deploy frontend to EC2
+        run: |
+          echo "📦 Deploying frontend build to EC2..."
+          rsync -avz --delete \
+            --exclude='node_modules' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            frontend/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ env.EC2_APP_PATH }}/frontend/
+          echo "✅ Frontend files synced to EC2"
+
+      - name: Install frontend dependencies on EC2
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            cd ${{ env.EC2_APP_PATH }}/frontend
+            echo "📦 Installing frontend production dependencies..."
+            npm ci --production
+            echo "✅ Frontend dependencies installed"
+          EOF
 
       - name: Install backend dependencies
         run: |
@@ -135,14 +185,30 @@ jobs:
             echo "✅ PM2 process started and saved"
           EOF
 
+      - name: Start frontend with PM2
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            cd ${{ env.EC2_APP_PATH }}/frontend
+            echo "🔄 Removing existing frontend PM2 process..."
+            pm2 delete pepper-2.0-frontend 2>/dev/null || true
+            echo "🚀 Starting frontend Next.js server..."
+            pm2 start npm --name "pepper-2.0-frontend" -- start
+            pm2 save
+            echo "✅ Frontend PM2 process started and saved"
+          EOF
+
       - name: PM2 status and startup logs
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'REMOTE'
             echo "=== PM2 status ==="
             pm2 status
             echo ""
-            echo "=== PM2 logs (last 40 lines) ==="
-            pm2 logs pepper-2.0-backend --lines 40 --nostream
+            echo "=== Backend logs (last 30 lines) ==="
+            pm2 logs pepper-2.0-backend --lines 30 --nostream
+            echo ""
+            echo "=== Frontend logs (last 30 lines) ==="
+            pm2 logs pepper-2.0-frontend --lines 30 --nostream
           REMOTE
 
       - name: Wait for application startup
@@ -186,7 +252,12 @@ jobs:
         run: |
           echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend:** Deployed to EC2" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend:** Deployed to EC2 (port 3001)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend:** Deployed to EC2 (port 3000)" >> $GITHUB_STEP_SUMMARY
           echo "- **Domain:** ${{ env.EC2_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Health Check:** ${{ steps.health.outputs.health_response }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **PM2 Status:** Running" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Health Check:** ${{ steps.health.outputs.health_response }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PM2 Status:** Backend and Frontend running" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** Configure nginx to proxy:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`/\` and \`/_next\` → http://localhost:3000 (frontend)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`/api\` and \`/health\` → http://localhost:3001 (backend)" >> $GITHUB_STEP_SUMMARY

@@ -10,6 +10,12 @@ on:
       - 'backend/**'
       - '.github/workflows/deploy-pepper-2.0.yml'
   workflow_dispatch:
+    inputs:
+      deploy_lambda:
+        description: 'Deploy Lambda functions'
+        required: false
+        default: 'true'
+        type: boolean
 
 env:
   NODE_VERSION: '20.x'
@@ -270,3 +276,258 @@ jobs:
           echo "⚠️ **Note:** Configure nginx to proxy:" >> $GITHUB_STEP_SUMMARY
           echo "- \`/\` and \`/_next\` → http://localhost:3000 (frontend)" >> $GITHUB_STEP_SUMMARY
           echo "- \`/api\` and \`/health\` → http://localhost:3001 (backend)" >> $GITHUB_STEP_SUMMARY
+
+  deploy-lambda:
+    name: Deploy Lambda Functions
+    runs-on: ubuntu-latest
+    # Run on:
+    # 1. Manual trigger (workflow_dispatch) - always runs
+    # 2. Push to main/production (backend files are already in paths filter)
+    # Note: Lambda deployment runs when backend/** changes, which includes
+    # lambda handlers, services, lib, utils, models that Lambda functions depend on
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && 
+       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'))
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Make package script executable
+        working-directory: backend/lambda
+        run: chmod +x package-lambda.sh
+
+      - name: Package Lambda functions
+        working-directory: backend/lambda
+        run: |
+          echo "📦 Packaging Lambda functions..."
+          ./package-lambda.sh caseCleanupHandler
+          ./package-lambda.sh calendarNotificationHandler
+          ./package-lambda.sh cpnuSyncHandler
+          echo "✅ All Lambda functions packaged"
+
+      - name: Upload Lambda packages as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-packages
+          path: |
+            backend/lambda/*.zip
+          retention-days: 1
+
+      - name: Deploy caseCleanupHandler
+        working-directory: backend/lambda
+        run: |
+          FUNCTION_NAME="pepper-2.0-case-cleanup"
+          ZIP_FILE="caseCleanupHandler.zip"
+          
+          echo "🚀 Deploying $FUNCTION_NAME..."
+          
+          # Check if function exists
+          if aws lambda get-function --function-name "$FUNCTION_NAME" 2>/dev/null; then
+            echo "📦 Function exists, updating code..."
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file "fileb://$ZIP_FILE" \
+              --output json > /tmp/update-result.json
+            
+            # Wait for update to complete
+            aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+            
+            echo "✅ Function code updated"
+          else
+            echo "⚠️  Function does not exist. Creating function..."
+            echo "   Note: Function creation requires IAM role ARN in secrets.AWS_LAMBDA_ROLE_ARN"
+            
+            if [ -z "${{ secrets.AWS_LAMBDA_ROLE_ARN }}" ]; then
+              echo "::error::AWS_LAMBDA_ROLE_ARN secret not set. Cannot create function."
+              echo "   Please create the function manually or set AWS_LAMBDA_ROLE_ARN secret."
+              exit 1
+            fi
+            
+            # Get MONGO_URI from Parameter Store or use secret
+            MONGO_URI="${{ secrets.MONGO_URI }}"
+            if [ -z "$MONGO_URI" ]; then
+              echo "::warning::MONGO_URI not found in secrets. Function will need environment variables configured."
+            fi
+            
+            aws lambda create-function \
+              --function-name "$FUNCTION_NAME" \
+              --runtime nodejs20.x \
+              --role "${{ secrets.AWS_LAMBDA_ROLE_ARN }}" \
+              --handler "lambda/caseCleanupHandler.handler" \
+              --zip-file "fileb://$ZIP_FILE" \
+              --timeout 300 \
+              --memory-size 512 \
+              --environment "Variables={MONGO_URI=$MONGO_URI,TZ=America/New_York}" \
+              --description "Pepper 2.0: Clean up closed cases after retention period" \
+              --output json > /tmp/create-result.json
+            
+            echo "✅ Function created"
+          fi
+          
+          # Get function ARN for EventBridge
+          FUNCTION_ARN=$(aws lambda get-function --function-name "$FUNCTION_NAME" --query 'Configuration.FunctionArn' --output text)
+          echo "Function ARN: $FUNCTION_ARN"
+          echo "function_arn=$FUNCTION_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy calendarNotificationHandler
+        working-directory: backend/lambda
+        run: |
+          FUNCTION_NAME="pepper-2.0-calendar-notifications"
+          ZIP_FILE="calendarNotificationHandler.zip"
+          
+          echo "🚀 Deploying $FUNCTION_NAME..."
+          
+          if aws lambda get-function --function-name "$FUNCTION_NAME" 2>/dev/null; then
+            echo "📦 Function exists, updating code..."
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file "fileb://$ZIP_FILE" \
+              --output json > /tmp/update-result.json
+            
+            aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+            echo "✅ Function code updated"
+          else
+            echo "⚠️  Function does not exist. Creating function..."
+            
+            if [ -z "${{ secrets.AWS_LAMBDA_ROLE_ARN }}" ]; then
+              echo "::error::AWS_LAMBDA_ROLE_ARN secret not set. Cannot create function."
+              exit 1
+            fi
+            
+            MONGO_URI="${{ secrets.MONGO_URI }}"
+            
+            aws lambda create-function \
+              --function-name "$FUNCTION_NAME" \
+              --runtime nodejs20.x \
+              --role "${{ secrets.AWS_LAMBDA_ROLE_ARN }}" \
+              --handler "lambda/calendarNotificationHandler.handler" \
+              --zip-file "fileb://$ZIP_FILE" \
+              --timeout 300 \
+              --memory-size 512 \
+              --environment "Variables={MONGO_URI=$MONGO_URI,TZ=America/New_York}" \
+              --description "Pepper 2.0: Send WhatsApp notifications for upcoming calendar events" \
+              --output json > /tmp/create-result.json
+            
+            echo "✅ Function created"
+          fi
+          
+          FUNCTION_ARN=$(aws lambda get-function --function-name "$FUNCTION_NAME" --query 'Configuration.FunctionArn' --output text)
+          echo "Function ARN: $FUNCTION_ARN"
+          echo "function_arn=$FUNCTION_ARN" >> $GITHUB_OUTPUT
+
+      - name: Deploy cpnuSyncHandler
+        working-directory: backend/lambda
+        run: |
+          FUNCTION_NAME="pepper-2.0-cpnu-sync"
+          ZIP_FILE="cpnuSyncHandler.zip"
+          
+          echo "🚀 Deploying $FUNCTION_NAME..."
+          
+          if aws lambda get-function --function-name "$FUNCTION_NAME" 2>/dev/null; then
+            echo "📦 Function exists, updating code..."
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file "fileb://$ZIP_FILE" \
+              --output json > /tmp/update-result.json
+            
+            aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+            echo "✅ Function code updated"
+          else
+            echo "⚠️  Function does not exist. Creating function..."
+            
+            if [ -z "${{ secrets.AWS_LAMBDA_ROLE_ARN }}" ]; then
+              echo "::error::AWS_LAMBDA_ROLE_ARN secret not set. Cannot create function."
+              exit 1
+            fi
+            
+            MONGO_URI="${{ secrets.MONGO_URI }}"
+            
+            aws lambda create-function \
+              --function-name "$FUNCTION_NAME" \
+              --runtime nodejs20.x \
+              --role "${{ secrets.AWS_LAMBDA_ROLE_ARN }}" \
+              --handler "lambda/cpnuSyncHandler.handler" \
+              --zip-file "fileb://$ZIP_FILE" \
+              --timeout 300 \
+              --memory-size 512 \
+              --environment "Variables={MONGO_URI=$MONGO_URI,TZ=America/Bogota}" \
+              --description "Pepper 2.0: Sync CPNU actuaciones for linked cases" \
+              --output json > /tmp/create-result.json
+            
+            echo "✅ Function created"
+          fi
+          
+          FUNCTION_ARN=$(aws lambda get-function --function-name "$FUNCTION_NAME" --query 'Configuration.FunctionArn' --output text)
+          echo "Function ARN: $FUNCTION_ARN"
+          echo "function_arn=$FUNCTION_ARN" >> $GITHUB_OUTPUT
+
+      - name: Verify Lambda deployments
+        run: |
+          echo "🔍 Verifying Lambda function deployments..."
+          
+          FUNCTIONS=(
+            "pepper-2.0-case-cleanup"
+            "pepper-2.0-calendar-notifications"
+            "pepper-2.0-cpnu-sync"
+          )
+          
+          for func in "${FUNCTIONS[@]}"; do
+            if aws lambda get-function --function-name "$func" > /dev/null 2>&1; then
+              STATUS=$(aws lambda get-function --function-name "$func" --query 'Configuration.State' --output text)
+              LAST_MODIFIED=$(aws lambda get-function --function-name "$func" --query 'Configuration.LastModified' --output text)
+              echo "✅ $func: $STATUS (Last modified: $LAST_MODIFIED)"
+            else
+              echo "❌ $func: Function not found"
+            fi
+          done
+
+      - name: Lambda deployment summary
+        if: success()
+        run: |
+          echo "## ✅ Lambda Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Functions:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **pepper-2.0-case-cleanup**" >> $GITHUB_STEP_SUMMARY
+          echo "   - Schedule: Daily at 2:00 AM (America/New_York)" >> $GITHUB_STEP_SUMMARY
+          echo "   - Handler: lambda/caseCleanupHandler.handler" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "2. **pepper-2.0-calendar-notifications**" >> $GITHUB_STEP_SUMMARY
+          echo "   - Schedule: Every 5 minutes (America/New_York)" >> $GITHUB_STEP_SUMMARY
+          echo "   - Handler: lambda/calendarNotificationHandler.handler" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "3. **pepper-2.0-cpnu-sync**" >> $GITHUB_STEP_SUMMARY
+          echo "   - Schedule: 12:00 PM and 7:00 PM daily (America/Bogota)" >> $GITHUB_STEP_SUMMARY
+          echo "   - Handler: lambda/cpnuSyncHandler.handler" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. ⚠️ **Configure EventBridge Rules** (if not already done):" >> $GITHUB_STEP_SUMMARY
+          echo "   - Create EventBridge rules to trigger Lambda functions on schedule" >> $GITHUB_STEP_SUMMARY
+          echo "   - See \`backend/lambda/README.md\` for schedule details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "2. 🔍 **Verify Lambda execution:**" >> $GITHUB_STEP_SUMMARY
+          echo "   - Check CloudWatch logs for each function" >> $GITHUB_STEP_SUMMARY
+          echo "   - Test functions manually if needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "3. 🚫 **Disable EC2 cron jobs** (after verifying Lambda works):" >> $GITHUB_STEP_SUMMARY
+          echo "   - Run \`backend/scripts/disable-ec2-cron.sh\` on EC2" >> $GITHUB_STEP_SUMMARY
+          echo "   - See \`backend/scripts/CRON_MIGRATION_GUIDE.md\` for details" >> $GITHUB_STEP_SUMMARY

@@ -21,6 +21,7 @@
   --accent-yellow: #facc15;
 }
 
+/* Pepper 2.0 */
 body {
   color: rgb(var(--foreground-rgb));
   /* Exact body background gradient from design */

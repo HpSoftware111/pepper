@@ -29,6 +29,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -126,10 +127,12 @@ jobs:
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd ${{ env.EC2_APP_PATH }}/backend
-            echo "🔄 Restarting PM2..."
-            pm2 restart pepper-2.0-backend || pm2 start ecosystem.config.js
+            echo "🔄 Removing existing PM2 process (ensures fresh config from ecosystem.config.js)..."
+            pm2 delete pepper-2.0-backend 2>/dev/null || true
+            echo "🚀 Starting backend from ecosystem.config.js..."
+            pm2 start ecosystem.config.js
             pm2 save
-            echo "✅ PM2 restarted"
+            echo "✅ PM2 process started and saved"
           EOF
 
       - name: PM2 status and startup logs
@@ -150,7 +153,9 @@ jobs:
         run: |
           echo "🔍 Waiting for backend to be ready..."
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            HEALTH=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health 2>/dev/null || echo '000'")
+            RAW=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health 2>/dev/null || echo '000'")
+            HEALTH=$(printf '%s' "$RAW" | tr -d '\n\r' | head -c 3)
+            [ -z "$HEALTH" ] && HEALTH="000"
             if [ "$HEALTH" = "200" ]; then
               BODY=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "curl -s http://localhost:3001/health")
               echo "health_response=$BODY" >> $GITHUB_OUTPUT

@@ -30,7 +30,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: pepper-2.0/frontend/package-lock.json
-
+        # add node version to the environment variable
       - name: Install frontend dependencies
         working-directory: pepper-2.0/frontend
         run: npm ci

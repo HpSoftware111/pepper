@@ -102,6 +102,15 @@ jobs:
             -e "ssh -o StrictHostKeyChecking=no" \
             . ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ env.EC2_APP_PATH }}/
 
+      - name: Verify backend .env on EC2
+        run: |
+          if ! ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "test -f ${{ env.EC2_APP_PATH }}/backend/.env"; then
+            echo "::error::backend/.env not found on EC2 at ${{ env.EC2_APP_PATH }}/backend/.env"
+            echo "Create it (e.g. MONGO_URI=..., PORT=3001) and re-run. Deploy excludes .env."
+            exit 1
+          fi
+          echo "✅ backend/.env exists"
+
       - name: Install backend dependencies
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
@@ -122,6 +131,16 @@ jobs:
             pm2 save
             echo "✅ PM2 restarted"
           EOF
+
+      - name: PM2 status and startup logs
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'REMOTE'
+            echo "=== PM2 status ==="
+            pm2 status
+            echo ""
+            echo "=== PM2 logs (last 40 lines) ==="
+            pm2 logs pepper-2.0-backend --lines 40 --nostream
+          REMOTE
 
       - name: Wait for application startup
         run: sleep 10

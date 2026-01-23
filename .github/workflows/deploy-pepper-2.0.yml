@@ -47,9 +47,18 @@ jobs:
           path: |
             frontend/.next
             frontend/public
+            frontend/app
+            frontend/components
+            frontend/lib
+            frontend/providers
+            frontend/hooks
             frontend/package.json
             frontend/package-lock.json
             frontend/next.config.js
+            frontend/tsconfig.json
+            frontend/tailwind.config.js
+            frontend/postcss.config.js
+            frontend/next-env.d.ts
           retention-days: 1
 
   deploy-backend:
@@ -193,7 +202,7 @@ jobs:
             echo "🔄 Removing existing frontend PM2 process..."
             pm2 delete pepper-2.0-frontend 2>/dev/null || true
             echo "🚀 Starting frontend Next.js server..."
-            pm2 start npm --name "pepper-2.0-frontend" -- start
+            pm2 start npm --name "pepper-2.0-frontend" --cwd "${{ env.EC2_APP_PATH }}/frontend" -- start
             pm2 save
             echo "✅ Frontend PM2 process started and saved"
           EOF

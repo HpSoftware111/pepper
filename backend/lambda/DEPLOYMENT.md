@@ -68,7 +68,7 @@ aws events put-rule \
 
 aws events put-targets \
   --rule pepper-2.0-case-cleanup-schedule \
-  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-2.0-case-cleanup"
+  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-20-case-cleanup"
 ```
 
 ### Calendar Notifications (Every 5 minutes)
@@ -80,7 +80,7 @@ aws events put-rule \
 
 aws events put-targets \
   --rule pepper-2.0-calendar-notifications-schedule \
-  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-2.0-calendar-notifications"
+  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-20-calendar-notifications"
 ```
 
 ### CPNU Sync (12:00 PM and 7:00 PM Colombia time)
@@ -93,7 +93,7 @@ aws events put-rule \
 
 aws events put-targets \
   --rule pepper-2.0-cpnu-sync-12pm \
-  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-2.0-cpnu-sync"
+  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-20-cpnu-sync"
 
 # 7 PM rule
 aws events put-rule \
@@ -103,7 +103,7 @@ aws events put-rule \
 
 aws events put-targets \
   --rule pepper-2.0-cpnu-sync-7pm \
-  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-2.0-cpnu-sync"
+  --targets "Id=1,Arn=arn:aws:lambda:REGION:ACCOUNT:function:pepper-20-cpnu-sync"
 ```
 
 ## Manual Deployment
@@ -119,15 +119,15 @@ cd backend/lambda
 
 # Deploy to AWS
 aws lambda update-function-code \
-  --function-name pepper-2.0-case-cleanup \
+  --function-name pepper-20-case-cleanup \
   --zip-file fileb://caseCleanupHandler.zip
 
 aws lambda update-function-code \
-  --function-name pepper-2.0-calendar-notifications \
+  --function-name pepper-20-calendar-notifications \
   --zip-file fileb://calendarNotificationHandler.zip
 
 aws lambda update-function-code \
-  --function-name pepper-2.0-cpnu-sync \
+  --function-name pepper-20-cpnu-sync \
   --zip-file fileb://cpnuSyncHandler.zip
 ```
 
@@ -137,12 +137,12 @@ After deployment, monitor Lambda functions:
 
 ```bash
 # View logs
-aws logs tail /aws/lambda/pepper-2.0-case-cleanup --follow
-aws logs tail /aws/lambda/pepper-2.0-calendar-notifications --follow
-aws logs tail /aws/lambda/pepper-2.0-cpnu-sync --follow
+aws logs tail /aws/lambda/pepper-20-case-cleanup --follow
+aws logs tail /aws/lambda/pepper-20-calendar-notifications --follow
+aws logs tail /aws/lambda/pepper-20-cpnu-sync --follow
 
 # Check function status
-aws lambda get-function --function-name pepper-2.0-case-cleanup
+aws lambda get-function --function-name pepper-20-case-cleanup
 ```
 
 ## Troubleshooting

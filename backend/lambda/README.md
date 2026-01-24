@@ -45,7 +45,7 @@ cd backend/lambda
 ```bash
 # Create function
 aws lambda create-function \
-  --function-name pepper-2.0-case-cleanup \
+  --function-name pepper-20-case-cleanup \
   --runtime nodejs20.x \
   --role arn:aws:iam::ACCOUNT:role/lambda-execution-role \
   --handler lambda/caseCleanupHandler.handler \
@@ -56,7 +56,7 @@ aws lambda create-function \
 
 # Update function code
 aws lambda update-function-code \
-  --function-name pepper-2.0-case-cleanup \
+  --function-name pepper-20-case-cleanup \
   --zip-file fileb://caseCleanupHandler.zip
 ```
 

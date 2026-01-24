@@ -334,7 +334,7 @@ jobs:
       - name: Deploy caseCleanupHandler
         working-directory: backend/lambda
         run: |
-          FUNCTION_NAME="pepper-2.0-case-cleanup"
+          FUNCTION_NAME="pepper-20-case-cleanup"
           ZIP_FILE="caseCleanupHandler.zip"
           
           echo "🚀 Deploying $FUNCTION_NAME..."
@@ -408,7 +408,7 @@ jobs:
       - name: Deploy calendarNotificationHandler
         working-directory: backend/lambda
         run: |
-          FUNCTION_NAME="pepper-2.0-calendar-notifications"
+          FUNCTION_NAME="pepper-20-calendar-notifications"
           ZIP_FILE="calendarNotificationHandler.zip"
           
           echo "🚀 Deploying $FUNCTION_NAME..."
@@ -467,7 +467,7 @@ jobs:
       - name: Deploy cpnuSyncHandler
         working-directory: backend/lambda
         run: |
-          FUNCTION_NAME="pepper-2.0-cpnu-sync"
+          FUNCTION_NAME="pepper-20-cpnu-sync"
           ZIP_FILE="cpnuSyncHandler.zip"
           
           echo "🚀 Deploying $FUNCTION_NAME..."
@@ -528,9 +528,9 @@ jobs:
           echo "🔍 Verifying Lambda function deployments..."
           
           FUNCTIONS=(
-            "pepper-2.0-case-cleanup"
-            "pepper-2.0-calendar-notifications"
-            "pepper-2.0-cpnu-sync"
+            "pepper-20-case-cleanup"
+            "pepper-20-calendar-notifications"
+            "pepper-20-cpnu-sync"
           )
           
           for func in "${FUNCTIONS[@]}"; do
@@ -550,15 +550,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployed Functions:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **pepper-2.0-case-cleanup**" >> $GITHUB_STEP_SUMMARY
+          echo "1. **pepper-20-case-cleanup**" >> $GITHUB_STEP_SUMMARY
           echo "   - Schedule: Daily at 2:00 AM (America/New_York)" >> $GITHUB_STEP_SUMMARY
           echo "   - Handler: lambda/caseCleanupHandler.handler" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "2. **pepper-2.0-calendar-notifications**" >> $GITHUB_STEP_SUMMARY
+          echo "2. **pepper-20-calendar-notifications**" >> $GITHUB_STEP_SUMMARY
           echo "   - Schedule: Every 5 minutes (America/New_York)" >> $GITHUB_STEP_SUMMARY
           echo "   - Handler: lambda/calendarNotificationHandler.handler" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "3. **pepper-2.0-cpnu-sync**" >> $GITHUB_STEP_SUMMARY
+          echo "3. **pepper-20-cpnu-sync**" >> $GITHUB_STEP_SUMMARY
           echo "   - Schedule: 12:00 PM and 7:00 PM daily (America/Bogota)" >> $GITHUB_STEP_SUMMARY
           echo "   - Handler: lambda/cpnuSyncHandler.handler" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

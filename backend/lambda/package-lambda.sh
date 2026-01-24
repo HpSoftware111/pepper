@@ -296,7 +296,22 @@ echo "📋 Next steps:"
 echo "   1. Review package: unzip -l lambda/$ZIP_FILE | head -30"
 echo "   2. Test locally: unzip -q lambda/$ZIP_FILE -d test && cd test/package && MONGO_URI=test node lambda/$FUNCTION_NAME.js"
 echo "   3. Deploy to AWS:"
+# Map handler name to Lambda function name
+case "$FUNCTION_NAME" in
+  caseCleanupHandler)
+    LAMBDA_FUNCTION_NAME="pepper-20-case-cleanup"
+    ;;
+  calendarNotificationHandler)
+    LAMBDA_FUNCTION_NAME="pepper-20-calendar-notifications"
+    ;;
+  cpnuSyncHandler)
+    LAMBDA_FUNCTION_NAME="pepper-20-cpnu-sync"
+    ;;
+  *)
+    LAMBDA_FUNCTION_NAME="pepper-20-${FUNCTION_NAME,,}"
+    ;;
+esac
 echo "      aws lambda update-function-code \\"
-echo "        --function-name pepper-2.0-${FUNCTION_NAME} \\"
+echo "        --function-name ${LAMBDA_FUNCTION_NAME} \\"
 echo "        --zip-file fileb://lambda/$ZIP_FILE"
 echo ""

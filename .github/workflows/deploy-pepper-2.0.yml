@@ -339,6 +339,23 @@ jobs:
           
           echo "🚀 Deploying $FUNCTION_NAME..."
           
+          # Check package size before deployment
+          if [ -f "$ZIP_FILE" ]; then
+            ZIP_SIZE_BYTES=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE" 2>/dev/null || echo "0")
+            ZIP_SIZE_MB=$((ZIP_SIZE_BYTES / 1024 / 1024))
+            echo "📦 Package size: ${ZIP_SIZE_MB}MB"
+            
+            if [ "$ZIP_SIZE_MB" -gt 50 ]; then
+              echo "::error::Package size (${ZIP_SIZE_MB}MB) exceeds Lambda direct upload limit (50MB)"
+              echo "   The packaging script should have excluded puppeteer (~300MB)."
+              echo "   If this error persists, consider using S3 deployment or excluding more dependencies."
+              exit 1
+            fi
+          else
+            echo "::error::Package file $ZIP_FILE not found"
+            exit 1
+          fi
+          
           # Check if function exists
           if aws lambda get-function --function-name "$FUNCTION_NAME" 2>/dev/null; then
             echo "📦 Function exists, updating code..."
@@ -377,6 +394,7 @@ jobs:
               --memory-size 512 \
               --environment "Variables={MONGO_URI=$MONGO_URI,TZ=America/New_York}" \
               --description "Pepper 2.0: Clean up closed cases after retention period" \
+              --tags "pepper=2.0" \
               --output json > /tmp/create-result.json
             
             echo "✅ Function created"
@@ -394,6 +412,18 @@ jobs:
           ZIP_FILE="calendarNotificationHandler.zip"
           
           echo "🚀 Deploying $FUNCTION_NAME..."
+          
+          # Check package size before deployment
+          if [ -f "$ZIP_FILE" ]; then
+            ZIP_SIZE_BYTES=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE" 2>/dev/null || echo "0")
+            ZIP_SIZE_MB=$((ZIP_SIZE_BYTES / 1024 / 1024))
+            echo "📦 Package size: ${ZIP_SIZE_MB}MB"
+            
+            if [ "$ZIP_SIZE_MB" -gt 50 ]; then
+              echo "::error::Package size (${ZIP_SIZE_MB}MB) exceeds Lambda direct upload limit (50MB)"
+              exit 1
+            fi
+          fi
           
           if aws lambda get-function --function-name "$FUNCTION_NAME" 2>/dev/null; then
             echo "📦 Function exists, updating code..."
@@ -424,6 +454,7 @@ jobs:
               --memory-size 512 \
               --environment "Variables={MONGO_URI=$MONGO_URI,TZ=America/New_York}" \
               --description "Pepper 2.0: Send WhatsApp notifications for upcoming calendar events" \
+              --tags "pepper=2.0" \
               --output json > /tmp/create-result.json
             
             echo "✅ Function created"
@@ -440,6 +471,18 @@ jobs:
           ZIP_FILE="cpnuSyncHandler.zip"
           
           echo "🚀 Deploying $FUNCTION_NAME..."
+          
+          # Check package size before deployment
+          if [ -f "$ZIP_FILE" ]; then
+            ZIP_SIZE_BYTES=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE" 2>/dev/null || echo "0")
+            ZIP_SIZE_MB=$((ZIP_SIZE_BYTES / 1024 / 1024))
+            echo "📦 Package size: ${ZIP_SIZE_MB}MB"
+            
+            if [ "$ZIP_SIZE_MB" -gt 50 ]; then
+              echo "::error::Package size (${ZIP_SIZE_MB}MB) exceeds Lambda direct upload limit (50MB)"
+              exit 1
+            fi
+          fi
           
           if aws lambda get-function --function-name "$FUNCTION_NAME" 2>/dev/null; then
             echo "📦 Function exists, updating code..."
@@ -470,6 +513,7 @@ jobs:
               --memory-size 512 \
               --environment "Variables={MONGO_URI=$MONGO_URI,TZ=America/Bogota}" \
               --description "Pepper 2.0: Sync CPNU actuaciones for linked cases" \
+              --tags "pepper=2.0" \
               --output json > /tmp/create-result.json
             
             echo "✅ Function created"

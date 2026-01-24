@@ -90,14 +90,75 @@ if ! grep -q '"type": "module"' package.json; then
   sed -i.bak '1s/{/{ "type": "module",/' package.json || true
 fi
 
+# Remove large dependencies not needed for Lambda scheduled tasks
+# These are only needed for CPNU scraping on EC2, not for Lambda functions
+# Lambda functions only need: MongoDB, Express (for some services), and core dependencies
+echo "🗑️  Removing large dependencies not needed for Lambda..."
+echo "   Note: Puppeteer (~300MB) is excluded - only needed for CPNU scraping on EC2"
+REMOVED_SIZE=0
+
+# Remove puppeteer and related packages (can be 300+ MB)
+if [ -d "node_modules/puppeteer" ]; then
+  PUPPETEER_SIZE=$(du -sm node_modules/puppeteer 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/puppeteer
+  echo "  ✓ Removed puppeteer (~${PUPPETEER_SIZE}MB)"
+  REMOVED_SIZE=$((REMOVED_SIZE + PUPPETEER_SIZE))
+fi
+
+if [ -d "node_modules/puppeteer-extra" ]; then
+  rm -rf node_modules/puppeteer-extra
+  echo "  ✓ Removed puppeteer-extra"
+fi
+
+if [ -d "node_modules/puppeteer-extra-plugin-stealth" ]; then
+  rm -rf node_modules/puppeteer-extra-plugin-stealth
+  echo "  ✓ Removed puppeteer-extra-plugin-stealth"
+fi
+
+# Remove puppeteer cache if it exists
+if [ -d "node_modules/.cache/puppeteer" ]; then
+  rm -rf node_modules/.cache/puppeteer
+  echo "  ✓ Removed puppeteer cache"
+fi
+
+# Remove other large optional dependencies that might not be needed
+# (Add more exclusions here if needed)
+
+if [ $REMOVED_SIZE -gt 0 ]; then
+  echo "  ✅ Removed ~${REMOVED_SIZE}MB of unnecessary dependencies"
+fi
+
+# Check package size before zipping
+echo "📊 Checking package size..."
+UNCOMPRESSED_SIZE_MB=$(du -sm "$PACKAGE_DIR" 2>/dev/null | cut -f1 || echo "0")
+UNCOMPRESSED_SIZE=$(du -sh "$PACKAGE_DIR" | cut -f1)
+
+if [ "$UNCOMPRESSED_SIZE_MB" -gt 250 ]; then
+  echo "  ⚠️  Warning: Uncompressed size is ${UNCOMPRESSED_SIZE_MB}MB (Lambda limit: 250MB)"
+  echo "     Consider excluding more dependencies or using S3 deployment"
+fi
+
 # Create zip file
 echo "🗜️  Creating zip file..."
 cd "$TEMP_DIR"
 zip -r "$ZIP_FILE" package/ > /dev/null
 
 # Get package size
+PACKAGE_SIZE_BYTES=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE" 2>/dev/null || echo "0")
+PACKAGE_SIZE_MB=$((PACKAGE_SIZE_BYTES / 1024 / 1024))
 PACKAGE_SIZE=$(du -h "$ZIP_FILE" | cut -f1)
-UNCOMPRESSED_SIZE=$(du -sh "$PACKAGE_DIR" | cut -f1)
+
+# Check if package exceeds Lambda direct upload limit (50MB)
+if [ "$PACKAGE_SIZE_MB" -gt 50 ]; then
+  echo ""
+  echo "  ⚠️  WARNING: Package size is ${PACKAGE_SIZE_MB}MB (exceeds 50MB direct upload limit)"
+  echo "     Lambda direct upload limit: 50MB"
+  echo "     Options:"
+  echo "       1. Use S3 deployment (up to 250MB)"
+  echo "       2. Exclude more dependencies"
+  echo "       3. Use Lambda Layers for large dependencies"
+  echo ""
+fi
 
 # Move zip to lambda directory
 mv "$TEMP_DIR/$ZIP_FILE" "$SCRIPT_DIR/$ZIP_FILE"
@@ -106,7 +167,12 @@ mv "$TEMP_DIR/$ZIP_FILE" "$SCRIPT_DIR/$ZIP_FILE"
 rm -rf "$TEMP_DIR"
 
 echo "✅ Package created: lambda/$ZIP_FILE"
-echo "   Size: $PACKAGE_SIZE (compressed), $UNCOMPRESSED_SIZE (uncompressed)"
+echo "   Size: $PACKAGE_SIZE (${PACKAGE_SIZE_MB}MB compressed), $UNCOMPRESSED_SIZE (${UNCOMPRESSED_SIZE_MB}MB uncompressed)"
+if [ "$PACKAGE_SIZE_MB" -le 50 ]; then
+  echo "   ✅ Within Lambda direct upload limit (50MB)"
+else
+  echo "   ⚠️  Exceeds direct upload limit - use S3 deployment"
+fi
 echo ""
 echo "📋 Package structure:"
 echo "   package/"

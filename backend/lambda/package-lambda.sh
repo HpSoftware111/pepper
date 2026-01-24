@@ -91,10 +91,14 @@ if ! grep -q '"type": "module"' package.json; then
 fi
 
 # Remove large dependencies not needed for Lambda scheduled tasks
-# These are only needed for CPNU scraping on EC2, not for Lambda functions
-# Lambda functions only need: MongoDB, Express (for some services), and core dependencies
-echo "🗑️  Removing large dependencies not needed for Lambda..."
-echo "   Note: Puppeteer (~300MB) is excluded - only needed for CPNU scraping on EC2"
+# Scheduled Lambda functions only need:
+#   - MongoDB (mongoose) for database operations
+#   - Google APIs (googleapis) for calendar notifications
+#   - Twilio for WhatsApp notifications
+#   - Core utilities (dotenv, jsonwebtoken, bcryptjs, etc.)
+# Excluded: Web server (express), document processing, file uploads, AI/LLM, payments
+echo "🗑️  Removing dependencies not needed for scheduled Lambda tasks..."
+echo "   Excluding: puppeteer, express, openai, stripe, docx, mammoth, pdf-parse, multer, etc."
 REMOVED_SIZE=0
 
 # Remove puppeteer and related packages (can be 300+ MB)
@@ -121,12 +125,108 @@ if [ -d "node_modules/.cache/puppeteer" ]; then
   echo "  ✓ Removed puppeteer cache"
 fi
 
-# Remove other large optional dependencies that might not be needed
-# (Add more exclusions here if needed)
+# Remove dependencies not needed for scheduled Lambda tasks
+# These are only used for web server, file uploads, document generation, etc.
+echo "   Removing web server and document processing dependencies..."
+
+# Remove OpenAI (not needed for scheduled tasks)
+if [ -d "node_modules/openai" ]; then
+  OPENAI_SIZE=$(du -sm node_modules/openai 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/openai
+  echo "  ✓ Removed openai (~${OPENAI_SIZE}MB)"
+  REMOVED_SIZE=$((REMOVED_SIZE + OPENAI_SIZE))
+fi
+
+# Remove Stripe (payment processing - not needed for scheduled tasks)
+if [ -d "node_modules/stripe" ]; then
+  STRIPE_SIZE=$(du -sm node_modules/stripe 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/stripe
+  echo "  ✓ Removed stripe (~${STRIPE_SIZE}MB)"
+  REMOVED_SIZE=$((REMOVED_SIZE + STRIPE_SIZE))
+fi
+
+# Remove document generation libraries
+if [ -d "node_modules/docx" ]; then
+  DOCX_SIZE=$(du -sm node_modules/docx 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/docx
+  echo "  ✓ Removed docx (~${DOCX_SIZE}MB)"
+  REMOVED_SIZE=$((REMOVED_SIZE + DOCX_SIZE))
+fi
+
+if [ -d "node_modules/mammoth" ]; then
+  rm -rf node_modules/mammoth
+  echo "  ✓ Removed mammoth"
+fi
+
+if [ -d "node_modules/pdf-parse" ]; then
+  rm -rf node_modules/pdf-parse
+  echo "  ✓ Removed pdf-parse"
+fi
+
+# Remove file upload middleware (not needed for scheduled tasks)
+if [ -d "node_modules/multer" ]; then
+  rm -rf node_modules/multer
+  echo "  ✓ Removed multer"
+fi
+
+# Remove Express and related middleware (scheduled tasks don't need web server)
+# Note: Some services might import express, but scheduled tasks don't use it
+if [ -d "node_modules/express" ]; then
+  EXPRESS_SIZE=$(du -sm node_modules/express 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/express
+  echo "  ✓ Removed express (~${EXPRESS_SIZE}MB)"
+  REMOVED_SIZE=$((REMOVED_SIZE + EXPRESS_SIZE))
+fi
+
+if [ -d "node_modules/cors" ]; then
+  rm -rf node_modules/cors
+  echo "  ✓ Removed cors"
+fi
+
+if [ -d "node_modules/cookie-parser" ]; then
+  rm -rf node_modules/cookie-parser
+  echo "  ✓ Removed cookie-parser"
+fi
+
+# Remove CSV parsing (probably not needed for scheduled tasks)
+if [ -d "node_modules/csv-parse" ]; then
+  rm -rf node_modules/csv-parse
+  echo "  ✓ Removed csv-parse"
+fi
+
+# Remove nodemailer (WhatsApp is used instead for notifications)
+if [ -d "node_modules/nodemailer" ]; then
+  NODEMAILER_SIZE=$(du -sm node_modules/nodemailer 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/nodemailer
+  echo "  ✓ Removed nodemailer (~${NODEMAILER_SIZE}MB)"
+  REMOVED_SIZE=$((REMOVED_SIZE + NODEMAILER_SIZE))
+fi
+
+# Clean up any orphaned dependencies
+# Remove .bin symlinks for removed packages
+find node_modules/.bin -type l 2>/dev/null | while read link; do
+  target=$(readlink "$link" 2>/dev/null || echo "")
+  if [[ "$target" == *"/puppeteer/"* ]] || \
+     [[ "$target" == *"/openai/"* ]] || \
+     [[ "$target" == *"/stripe/"* ]] || \
+     [[ "$target" == *"/express/"* ]] || \
+     [[ "$target" == *"/docx/"* ]]; then
+    rm -f "$link"
+  fi
+done 2>/dev/null || true
 
 if [ $REMOVED_SIZE -gt 0 ]; then
   echo "  ✅ Removed ~${REMOVED_SIZE}MB of unnecessary dependencies"
 fi
+
+# Summary of key dependencies kept (needed for scheduled tasks)
+echo ""
+echo "📦 Key dependencies kept (required for scheduled tasks):"
+echo "   ✓ mongoose - MongoDB database"
+echo "   ✓ googleapis - Google Calendar API"
+echo "   ✓ twilio - WhatsApp notifications"
+echo "   ✓ dotenv, jsonwebtoken, bcryptjs - Core utilities"
+echo ""
 
 # Check package size before zipping
 echo "📊 Checking package size..."

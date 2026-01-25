@@ -45,58 +45,59 @@ mkdir -p "$PACKAGE_DIR/lambda"
 echo "📄 Copying handler..."
 cp "$SCRIPT_DIR/${FUNCTION_NAME}.js" "$PACKAGE_DIR/lambda/${FUNCTION_NAME}.js"
 
-# Copy required dependencies from backend directory
-echo "📚 Copying dependencies..."
 cd "$BACKEND_DIR"
 
-# Copy lib directory (MongoDB connection and utilities)
-echo "  → lib/"
-cp -r lib "$PACKAGE_DIR/"
-
-# Copy ALL services (services import each other)
-echo "  → services/"
-cp -r services "$PACKAGE_DIR/"
-
-# Copy controllers (needed by calendarNotificationService)
-echo "  → controllers/"
-cp -r controllers "$PACKAGE_DIR/"
-
-# Copy models directory
-echo "  → models/"
-cp -r models "$PACKAGE_DIR/"
-
-# Copy utils directory
-echo "  → utils/"
-cp -r utils "$PACKAGE_DIR/"
-
-# Copy middleware (needed by some controllers)
-echo "  → middleware/"
-cp -r middleware "$PACKAGE_DIR/"
-
-# Copy package.json and package-lock.json for dependency installation
-echo "  → package.json"
-cp package.json "$PACKAGE_DIR/"
-cp package-lock.json "$PACKAGE_DIR/" 2>/dev/null || echo "    ⚠️  package-lock.json not found (will install from package.json)"
+# =============================================================================
+# Function-specific packaging
+# - caseCleanupHandler: MINIMAL (mongoose + dotenv only) ~20MB unzipped
+# - Others: full package + exclusions (must stay under 250MB unzipped)
+# =============================================================================
+if [ "$FUNCTION_NAME" = "caseCleanupHandler" ]; then
+  echo "📦 Using minimal packaging (case-cleanup only)"
+  mkdir -p "$PACKAGE_DIR/lib" "$PACKAGE_DIR/services" "$PACKAGE_DIR/models" "$PACKAGE_DIR/utils"
+  cp -r lib/* "$PACKAGE_DIR/lib/"
+  cp services/caseCleanupService.js "$PACKAGE_DIR/services/"
+  cp models/MasterCaseDocument.js "$PACKAGE_DIR/models/"
+  cp utils/caseFolderUtils.js utils/mcdFileStorage.js utils/lambdaDetector.js "$PACKAGE_DIR/utils/"
+  cat > "$PACKAGE_DIR/package.json" << 'PKG'
+{
+  "name": "pepper-20-lambda-case-cleanup",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "mongoose": "^8.3.5",
+    "dotenv": "^16.4.5"
+  }
+}
+PKG
+  echo "  → lib/, caseCleanupService, MasterCaseDocument, caseFolderUtils, mcdFileStorage, lambdaDetector"
+  echo "  → Minimal deps: mongoose, dotenv only"
+else
+  echo "📚 Copying full dependencies..."
+  cp -r lib "$PACKAGE_DIR/"
+  cp -r services "$PACKAGE_DIR/"
+  cp -r controllers "$PACKAGE_DIR/"
+  cp -r models "$PACKAGE_DIR/"
+  cp -r utils "$PACKAGE_DIR/"
+  cp -r middleware "$PACKAGE_DIR/"
+  cp package.json "$PACKAGE_DIR/"
+  cp package-lock.json "$PACKAGE_DIR/" 2>/dev/null || true
+fi
 
 # Install production dependencies
 echo "📦 Installing dependencies..."
 cd "$PACKAGE_DIR"
-npm ci --production --no-optional 2>/dev/null || npm install --production --no-optional
-
-# Verify package.json has correct type
-if ! grep -q '"type": "module"' package.json; then
-  echo "  ⚠️  Adding 'type: module' to package.json..."
-  # Add type: module if missing (should already be there)
-  sed -i.bak '1s/{/{ "type": "module",/' package.json || true
+if [ "$FUNCTION_NAME" = "caseCleanupHandler" ]; then
+  npm install --production --no-optional
+else
+  npm ci --production --no-optional 2>/dev/null || npm install --production --no-optional
+  if ! grep -q '"type": "module"' package.json; then
+    sed -i.bak '1s/{/{ "type": "module",/' package.json 2>/dev/null || true
+  fi
 fi
 
-# Remove large dependencies not needed for Lambda scheduled tasks
-# Scheduled Lambda functions only need:
-#   - MongoDB (mongoose) for database operations
-#   - Google APIs (googleapis) for calendar notifications
-#   - Twilio for WhatsApp notifications
-#   - Core utilities (dotenv, jsonwebtoken, bcryptjs, etc.)
-# Excluded: Web server (express), document processing, file uploads, AI/LLM, payments
+# Remove large dependencies (skip for case-cleanup; it uses minimal packaging)
+if [ "$FUNCTION_NAME" != "caseCleanupHandler" ]; then
 echo "🗑️  Removing dependencies not needed for scheduled Lambda tasks..."
 echo "   Excluding: puppeteer, express, openai, stripe, docx, mammoth, pdf-parse, multer, etc."
 REMOVED_SIZE=0
@@ -219,7 +220,7 @@ if [ $REMOVED_SIZE -gt 0 ]; then
   echo "  ✅ Removed ~${REMOVED_SIZE}MB of unnecessary dependencies"
 fi
 
-# Summary of key dependencies kept (needed for scheduled tasks)
+# Summary of key dependencies kept
 echo ""
 echo "📦 Key dependencies kept (required for scheduled tasks):"
 echo "   ✓ mongoose - MongoDB database"
@@ -227,6 +228,7 @@ echo "   ✓ googleapis - Google Calendar API"
 echo "   ✓ twilio - WhatsApp notifications"
 echo "   ✓ dotenv, jsonwebtoken, bcryptjs - Core utilities"
 echo ""
+fi
 
 # Check package size before zipping
 echo "📊 Checking package size..."
@@ -234,8 +236,11 @@ UNCOMPRESSED_SIZE_MB=$(du -sm "$PACKAGE_DIR" 2>/dev/null | cut -f1 || echo "0")
 UNCOMPRESSED_SIZE=$(du -sh "$PACKAGE_DIR" | cut -f1)
 
 if [ "$UNCOMPRESSED_SIZE_MB" -gt 250 ]; then
-  echo "  ⚠️  Warning: Uncompressed size is ${UNCOMPRESSED_SIZE_MB}MB (Lambda limit: 250MB)"
-  echo "     Consider excluding more dependencies or using S3 deployment"
+  echo "  ❌ ERROR: Uncompressed size is ${UNCOMPRESSED_SIZE_MB}MB (Lambda limit: 250MB)"
+  echo "     Lambda rejects packages with unzipped size > 250MB."
+  echo "     Exclude more dependencies or use function-specific minimal packaging."
+  rm -rf "$TEMP_DIR"
+  exit 1
 fi
 
 # Create zip file
@@ -277,12 +282,14 @@ echo ""
 echo "📋 Package structure:"
 echo "   package/"
 echo "   ├── lambda/${FUNCTION_NAME}.js  (handler)"
-echo "   ├── lib/                         (MongoDB, utilities)"
-echo "   ├── services/                    (all services)"
-echo "   ├── controllers/                 (calendar controller)"
-echo "   ├── models/                      (Mongoose models)"
-echo "   ├── utils/                       (utility functions)"
-echo "   ├── middleware/                  (auth middleware)"
+if [ "$FUNCTION_NAME" = "caseCleanupHandler" ]; then
+  echo "   ├── lib/                         (MongoDB)"
+  echo "   ├── services/                    (caseCleanupService only)"
+  echo "   ├── models/                      (MasterCaseDocument only)"
+  echo "   ├── utils/                       (caseFolderUtils, mcdFileStorage, lambdaDetector)"
+else
+  echo "   ├── lib/, services/, controllers/, models/, utils/, middleware/"
+fi
 echo "   ├── node_modules/                (dependencies)"
 echo "   └── package.json"
 echo ""

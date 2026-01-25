@@ -4,7 +4,6 @@
  */
 
 import { OAuth2Client } from 'google-auth-library';
-import { google } from 'googleapis';
 import GoogleCalendarToken from '../models/GoogleCalendarToken.js';
 import { getCalendarClient } from '../controllers/calendarController.js';
 

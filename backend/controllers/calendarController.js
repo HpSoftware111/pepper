@@ -1,5 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
-import { google } from 'googleapis';
+import { calendar } from '@googleapis/calendar';
 import mongoose from 'mongoose';
 import GoogleCalendarToken from '../models/GoogleCalendarToken.js';
 import { requireAuth } from '../middleware/requireAuth.js';
@@ -156,12 +156,8 @@ export const getCalendarClient = async (userId) => {
         refreshToken = refreshed.getRefreshToken();
     }
 
-    // ✅ Correct OAuth2 client creation
-    const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
-    );
+    // ✅ OAuth2 client (from google-auth-library)
+    const oauth2Client = getOAuth2Client();
 
     // ✅ ONLY tokens — nothing else
     oauth2Client.setCredentials({
@@ -169,14 +165,14 @@ export const getCalendarClient = async (userId) => {
         refresh_token: refreshToken,
     });
 
-    // ✅ Create calendar client
-    const calendar = google.calendar({
+    // ✅ Create calendar client (@googleapis/calendar - slimmer than full googleapis)
+    const cal = calendar({
         version: 'v3',
         auth: oauth2Client,
     });
 
     console.log('✅ [Calendar] OAuth2 client authenticated correctly');
-    return calendar;
+    return cal;
 };
 
 // Refresh access token

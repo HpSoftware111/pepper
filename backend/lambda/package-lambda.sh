@@ -203,6 +203,14 @@ if [ -d "node_modules/nodemailer" ]; then
   REMOVED_SIZE=$((REMOVED_SIZE + NODEMAILER_SIZE))
 fi
 
+# Remove full googleapis if present (we use @googleapis/calendar instead)
+if [ -d "node_modules/googleapis" ]; then
+  GOOGLEAPIS_SIZE=$(du -sm node_modules/googleapis 2>/dev/null | cut -f1 || echo "0")
+  rm -rf node_modules/googleapis node_modules/googleapis-common 2>/dev/null || true
+  echo "  ✓ Removed googleapis (~${GOOGLEAPIS_SIZE}MB) - using @googleapis/calendar"
+  REMOVED_SIZE=$((REMOVED_SIZE + GOOGLEAPIS_SIZE))
+fi
+
 # Clean up any orphaned dependencies
 # Remove .bin symlinks for removed packages
 find node_modules/.bin -type l 2>/dev/null | while read link; do
@@ -211,7 +219,8 @@ find node_modules/.bin -type l 2>/dev/null | while read link; do
      [[ "$target" == *"/openai/"* ]] || \
      [[ "$target" == *"/stripe/"* ]] || \
      [[ "$target" == *"/express/"* ]] || \
-     [[ "$target" == *"/docx/"* ]]; then
+     [[ "$target" == *"/docx/"* ]] || \
+     [[ "$target" == *"/googleapis/"* ]]; then
     rm -f "$link"
   fi
 done 2>/dev/null || true
@@ -224,10 +233,22 @@ fi
 echo ""
 echo "📦 Key dependencies kept (required for scheduled tasks):"
 echo "   ✓ mongoose - MongoDB database"
-echo "   ✓ googleapis - Google Calendar API"
+echo "   ✓ @googleapis/calendar - Google Calendar API (slimmer than full googleapis)"
 echo "   ✓ twilio - WhatsApp notifications"
 echo "   ✓ dotenv, jsonwebtoken, bcryptjs - Core utilities"
 echo ""
+fi
+
+# Prune node_modules: remove tests, docs, etc. to reduce unzipped size (Lambda limit 250MB)
+if [ "$FUNCTION_NAME" != "caseCleanupHandler" ] && [ -d "node_modules" ]; then
+  echo "🧹 Pruning node_modules (remove tests, docs, etc.)..."
+  PRUNE_BEFORE=$(du -sm node_modules 2>/dev/null | cut -f1 || echo "0")
+  find node_modules -type f \( -name "*.md" -o -name "*.ts" -o -name "*.map" -o -name "CHANGELOG*" -o -name "README*" -o -name "LICENSE*" \) -delete 2>/dev/null || true
+  find node_modules -depth -type d \( -name "test" -o -name "tests" -o -name "__tests__" -o -name "examples" -o -name "example" -o -name "docs" -o -name ".github" \) -exec rm -rf {} \; 2>/dev/null || true
+  find node_modules -depth -type d -empty -delete 2>/dev/null || true
+  PRUNE_AFTER=$(du -sm node_modules 2>/dev/null | cut -f1 || echo "0")
+  SAVED=$((PRUNE_BEFORE - PRUNE_AFTER))
+  [ "$SAVED" -gt 0 ] 2>/dev/null && echo "  ✓ Freed ~${SAVED}MB" || echo "  ✓ Prune complete"
 fi
 
 # Check package size before zipping

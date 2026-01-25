@@ -120,6 +120,8 @@ export function ResourceUsage({ usage }: ResourceUsageProps) {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [registeringDevice, setRegisteringDevice] = useState(false);
   const [deletingDeviceId, setDeletingDeviceId] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'error' | 'info'; text: string } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const resources = Object.entries(usage).map(([key, data]) => ({
     key,
@@ -148,11 +150,15 @@ export function ResourceUsage({ usage }: ResourceUsageProps) {
   };
 
   const handleRegisterDevice = async () => {
+    setMessage(null);
     if (deviceInfo && deviceInfo.replacementsUsed >= deviceInfo.maxReplacements) {
-      alert(`Device replacement limit reached. You have used ${deviceInfo.replacementsUsed} of ${deviceInfo.maxReplacements} replacements.`);
+      setMessage({
+        type: 'info',
+        text: `Device replacement limit reached. You have used ${deviceInfo.replacementsUsed} of ${deviceInfo.maxReplacements} replacements.`,
+      });
       return;
     }
-    
+
     setRegisteringDevice(true);
     try {
       // Generate a unique device ID (must be at least 32 characters for backend validation)
@@ -175,23 +181,27 @@ export function ResourceUsage({ usage }: ResourceUsageProps) {
       await authClient.registerDevice(deviceId, deviceType);
       await loadDevices();
     } catch (error: any) {
-      alert(error.message || 'Failed to register device');
+      setMessage({ type: 'error', text: error.message || 'Failed to register device' });
     } finally {
       setRegisteringDevice(false);
     }
   };
 
   const handleDeleteDevice = async (deviceId: string) => {
-    if (!confirm('Are you sure you want to delete this device?')) {
+    if (confirmDeleteId !== deviceId) {
+      setConfirmDeleteId(deviceId);
+      setMessage(null);
       return;
     }
-    
+
+    setMessage(null);
     setDeletingDeviceId(deviceId);
+    setConfirmDeleteId(null);
     try {
       await authClient.deleteDevice(deviceId);
       await loadDevices();
     } catch (error: any) {
-      alert(error.message || 'Failed to delete device');
+      setMessage({ type: 'error', text: error.message || 'Failed to delete device' });
     } finally {
       setDeletingDeviceId(null);
     }
@@ -313,6 +323,18 @@ export function ResourceUsage({ usage }: ResourceUsageProps) {
           Registered Devices (maximum 2)
         </h4>
 
+        {message && (
+          <div
+            role="alert"
+            className={`mb-3 p-3 rounded-lg ${message.type === 'error'
+                ? isLight ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-red-500/10 border border-red-500/20 text-red-200'
+                : isLight ? 'bg-blue-50 border border-blue-200 text-blue-800' : 'bg-blue-500/10 border border-blue-500/20 text-blue-200'
+              }`}
+          >
+            <p className="text-sm">{message.text}</p>
+          </div>
+        )}
+
         {deviceInfo && deviceInfo.replacementsUsed > 0 && (
           <div className={`mb-3 p-3 rounded-lg ${isLight ? 'bg-yellow-50 border border-yellow-200' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
             <p className={`text-sm ${isLight ? 'text-yellow-900' : 'text-yellow-200'}`}>
@@ -343,17 +365,38 @@ export function ResourceUsage({ usage }: ResourceUsageProps) {
                     ({getDeviceTypeLabel(device.type)})
                   </span>
                 </div>
-                <button
-                  onClick={() => handleDeleteDevice(device.id)}
-                  disabled={deletingDeviceId === device.id}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
-                    isLight
-                      ? 'bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300'
-                      : 'bg-red-500 text-white hover:bg-red-600 disabled:bg-red-700'
-                  } disabled:cursor-not-allowed`}
-                >
-                  {deletingDeviceId === device.id ? 'Deleting...' : 'Delete'}
-                </button>
+                <div className="flex items-center gap-2">
+                  {confirmDeleteId === device.id ? (
+                    <>
+                      <span className="text-xs">Are you sure?</span>
+                      <button
+                        onClick={() => handleDeleteDevice(device.id)}
+                        disabled={deletingDeviceId === device.id}
+                        className="px-2 py-1 text-xs font-semibold rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {deletingDeviceId === device.id ? 'Deleting...' : 'Yes'}
+                      </button>
+                      <button
+                        onClick={() => { setConfirmDeleteId(null); setMessage(null); }}
+                        className={`px-2 py-1 text-xs font-semibold rounded border ${isLight ? 'border-slate-300 text-slate-600 hover:bg-slate-100' : 'border-white/20 text-slate-300 hover:bg-white/10'}`}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => handleDeleteDevice(device.id)}
+                      disabled={deletingDeviceId === device.id}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+                        isLight
+                          ? 'bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300'
+                          : 'bg-red-500 text-white hover:bg-red-600 disabled:bg-red-700'
+                      } disabled:cursor-not-allowed`}
+                    >
+                      {deletingDeviceId === device.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

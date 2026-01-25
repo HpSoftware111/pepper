@@ -44,6 +44,8 @@ export default function Header() {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [resourceUsage, setResourceUsage] = useState<any>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -131,6 +133,8 @@ export default function Header() {
 
   const handleSettings = () => {
     setMenuOpen(false);
+    setAvatarError(null);
+    setFormError(null);
     setAccountModalOpen(true);
   };
 
@@ -180,19 +184,19 @@ export default function Header() {
 
   const handleAccountInputChange = (field: keyof typeof accountForm, value: string) => {
     setAccountForm((prev) => ({ ...prev, [field]: value }));
+    if (field === 'displayName') setFormError(null);
   };
 
   const handleAvatarSwap = (event: ChangeEvent<HTMLInputElement>) => {
+    setAvatarError(null);
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+        setAvatarError('Please select an image file');
         return;
       }
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size must be less than 5MB');
+        setAvatarError('Image size must be less than 5MB');
         return;
       }
       setAvatarFile(file);
@@ -205,13 +209,11 @@ export default function Header() {
   const handleAccountSave = async () => {
     if (isSaving) return; // Prevent double submission
 
+    setFormError(null);
     setIsSaving(true);
     try {
-      console.log('Saving profile changes...', accountForm);
-
-      // Validate required fields
       if (!accountForm.displayName || !accountForm.displayName.trim()) {
-        alert('Full name is required');
+        setFormError('Full name is required');
         setIsSaving(false);
         return;
       }
@@ -252,28 +254,14 @@ export default function Header() {
           reader.readAsDataURL(avatarFile);
         });
         updatePayload.avatarUrl = avatarDataUrl;
-        console.log('Avatar converted to data URL, length:', avatarDataUrl.length);
       }
 
-      console.log('Updating profile with payload:', { ...updatePayload, avatarUrl: updatePayload.avatarUrl ? `[${updatePayload.avatarUrl.length} chars]` : 'none' });
-      console.log('Payload JSON stringified:', JSON.stringify(updatePayload).substring(0, 200) + '...');
-      console.log('API URL will be:', `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'}/api/auth/profile`);
-
-      // Update profile on backend
       const updatedUser = await authClient.updateProfile(updatePayload);
-      console.log('Profile updated successfully:', updatedUser);
-
-      // Clear avatar file after successful save
       setAvatarFile(null);
-
-      // Update user state in AuthProvider
       await updateUser();
-      console.log('User state refreshed');
-
       setAccountModalOpen(false);
     } catch (error) {
-      console.error('Error updating profile:', error);
-      alert(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setFormError(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSaving(false);
     }
@@ -546,6 +534,8 @@ export default function Header() {
                     <img
                       src={user.avatarUrl}
                       alt={user.displayName || 'User avatar'}
+                      width={36}
+                      height={36}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         // Fallback to initials if image fails to load
@@ -758,9 +748,9 @@ export default function Header() {
                           }`}
                       >
                         {avatarPreview ? (
-                          <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
+                          <img src={avatarPreview} alt="Avatar preview" width={112} height={112} className="w-full h-full object-cover" />
                         ) : user?.avatarUrl ? (
-                          <img src={user.avatarUrl} alt="User avatar" className="w-full h-full object-cover" />
+                          <img src={user.avatarUrl} alt="User avatar" width={112} height={112} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-3xl font-bold">
                             {user?.displayName
@@ -785,6 +775,11 @@ export default function Header() {
                         {t('account.swapPhoto')}
                       </button>
                       <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSwap} />
+                      {avatarError && (
+                        <p className="mt-4 text-center text-sm text-rose-500" role="alert">
+                          {avatarError}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-lg font-semibold">{accountForm.displayName || '—'}</p>
@@ -814,7 +809,14 @@ export default function Header() {
                         onChange={(e) => handleAccountInputChange('displayName', e.target.value)}
                         className={`w-full rounded-2xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/60 ${isLight ? 'border-slate-200 bg-white text-slate-900' : 'border-white/15 bg-[rgba(12,20,38,0.65)] text-white'
                           }`}
+                        aria-invalid={!!formError}
+                        aria-describedby={formError ? 'account-form-error' : undefined}
                       />
+                      {formError && (
+                        <p id="account-form-error" className="mt-1.5 text-sm text-rose-500" role="alert">
+                          {formError}
+                        </p>
+                      )}
                     </div>
                     <div className="flex-1 min-w-[220px]">
                       <label className="text-xs uppercase tracking-[0.3em] block mb-2 opacity-70">{t('account.email')}</label>

@@ -3,6 +3,11 @@ const path = require('path');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production'
+      ? { exclude: ['error', 'warn'] }
+      : false,
+  },
   env: {
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001',
   },

@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -408,6 +409,26 @@ export default function LoginPage() {
                 </label>
               )}
 
+              {mode === 'signup' && (
+                <label className="flex items-start gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    required
+                    className="mt-0.5 rounded border-white/20 bg-white/10 text-emerald-400 focus:ring-emerald-400"
+                  />
+                  <span>
+                    I agree to the{' '}
+                    <Link href="/terms-of-service" className="text-emerald-300 hover:text-emerald-200 underline">
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link href="/privacy-policy" className="text-emerald-300 hover:text-emerald-200 underline">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </label>
+              )}
+
               {mode === 'signin' && (
                 <div className="flex items-center justify-between text-sm text-slate-300">
                   <label className="flex items-center gap-2">
@@ -472,6 +493,18 @@ export default function LoginPage() {
                   Google sign-in is disabled for this environment. Set NEXT_PUBLIC_ENABLE_GOOGLE_SIGNIN=true (and a valid NEXT_PUBLIC_GOOGLE_CLIENT_ID) to enable it.
                 </p>
               )}
+            </div>
+
+            <div className="pt-4 border-t border-white/10">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
+                <Link href="/privacy-policy" className="hover:text-emerald-300 transition-colors underline">
+                  Privacy Policy
+                </Link>
+                <span className="text-white/20">•</span>
+                <Link href="/terms-of-service" className="hover:text-emerald-300 transition-colors underline">
+                  Terms of Service
+                </Link>
+              </div>
             </div>
           </main>
         </div>

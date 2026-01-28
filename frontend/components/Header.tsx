@@ -171,8 +171,8 @@ export default function Header() {
   const darkModeShadowStyle = isLight
     ? {}
     : {
-        boxShadow: 'inset 10px 0px 2px 2px #1b121214, inset -1px 0px 0px 0px #eedcdc5c, inset 1px -1px 4px 4px rgb(255 255 255 / 9%)',
-      };
+      boxShadow: 'inset 10px 0px 2px 2px #1b121214, inset -1px 0px 0px 0px #eedcdc5c, inset 1px -1px 4px 4px rgb(255 255 255 / 9%)',
+    };
 
   const iconButtonClasses = isLight
     ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-[0_8px_18px_rgba(15,23,42,0.08)]'
@@ -932,10 +932,9 @@ export default function Header() {
         createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(5,10,20,0.82)] backdrop-blur-sm px-4 py-6">
             <div
-              className={`w-full max-w-2xl rounded-[32px] border px-6 py-6 sm:px-8 sm:py-8 shadow-[0_45px_120px_rgba(5,10,20,0.45)] ${isLight ? 'bg-white text-slate-900 border-slate-100' : 'bg-[rgba(8,16,34,0.92)] text-white border-white/10'
-                }`}
+              className={`w-full max-w-2xl max-h-[85vh] rounded-[32px] border shadow-[0_45px_120px_rgba(5,10,20,0.45)] flex flex-col ${isLight ? 'bg-white text-slate-900 border-slate-100' : 'bg-[rgba(8,16,34,0.92)] text-white border-white/10'}`}
             >
-              <div className="flex items-center justify-between mb-6">
+              <div className={`flex items-center justify-between px-6 py-6 sm:px-8 sm:py-8 border-b flex-shrink-0 ${isLight ? 'border-slate-200' : 'border-white/10'}`}>
                 <h2 className={`text-2xl font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
                   Resource Usage
                 </h2>
@@ -949,13 +948,15 @@ export default function Header() {
                   </svg>
                 </button>
               </div>
-              {resourceUsage ? (
-                <ResourceUsage usage={resourceUsage} />
-              ) : (
-                <div className={`text-center py-8 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Loading resource usage...
-                </div>
-              )}
+              <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8 sm:py-8">
+                {resourceUsage ? (
+                  <ResourceUsage usage={resourceUsage} />
+                ) : (
+                  <div className={`text-center py-8 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    Loading resource usage...
+                  </div>
+                )}
+              </div>
             </div>
           </div>,
           document.body,

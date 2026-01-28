@@ -3337,15 +3337,15 @@ export default function PepperAssistant() {
                                     ) : (
                                       user?.avatarUrl && !avatarError['modal'] ? (
                                         <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-emerald-300 shadow-[0_6px_14px_rgba(12,186,171,0.35)]">
-                                            <img
-                                              src={user.avatarUrl}
-                                              alt={user.displayName || 'User'}
-                                              width={44}
-                                              height={44}
-                                              className="w-full h-full object-cover"
-                                              onError={() => setAvatarError((prev) => ({ ...prev, modal: true }))}
-                                            />
-                                          </div>
+                                          <img
+                                            src={user.avatarUrl}
+                                            alt={user.displayName || 'User'}
+                                            width={44}
+                                            height={44}
+                                            className="w-full h-full object-cover"
+                                            onError={() => setAvatarError((prev) => ({ ...prev, modal: true }))}
+                                          />
+                                        </div>
                                       ) : (
                                         <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-emerald-700 border-2 border-emerald-300 text-white font-semibold shadow-[0_6px_14px_rgba(12,186,171,0.35)]">
                                           {user?.displayName
@@ -4120,7 +4120,6 @@ export default function PepperAssistant() {
             rows={isModal ? (isCompact ? 2 : 3) : 2}
             style={{
               overflowY: inputValues[source].includes('\n') ? 'auto' : 'hidden',
-              color: '#000000',
             }}
             onKeyDown={(e) => {
               if (!isInteractive || isTranscribingCurrent) return;

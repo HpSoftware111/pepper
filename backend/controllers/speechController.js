@@ -44,7 +44,7 @@ export const transcribeAudio = async (req, res) => {
       return res.status(500).json({ error: 'OpenAI API key is not configured.' });
     }
 
-    const { language = 'auto', threadId, scenario } = req.body || {};
+    const { language = 'auto', threadId, scenario, sourceName, duration } = req.body || {};
 
     // Convert language hint if provided
     // Prioritize explicit language hints over auto-detect for better accuracy
@@ -101,13 +101,44 @@ export const transcribeAudio = async (req, res) => {
 
     const transcript = transcription.text || '';
 
+    // Detect language from transcript (used for both storage and response)
+    const detectedLangKey = transcript
+      ? getLanguageKey(detectLanguageFromText(transcript))
+      : 'es';
+
+    // Store transcription in ExtractedText model (so it appears in extracted texts list)
+    let textId = null;
+    if (transcript.trim() && req.user?.userId && req.user?.email) {
+      try {
+        textId = `text-${crypto.randomUUID()}`;
+        const extractedText = new ExtractedText({
+          textId,
+          userId: new mongoose.Types.ObjectId(req.user.userId),
+          userEmail: req.user.email.toLowerCase(),
+          source: 'voice',
+          sourceName: sourceName || `Voice Recording - ${new Date().toLocaleString()}`,
+          extractedText: transcript.trim(),
+          metadata: {
+            duration: duration ? parseFloat(duration) : null,
+            wordCount: 0, // Will be calculated in pre-save hook
+            language: detectedLangKey,
+            meetingTitle: null,
+          },
+          status: 'ready',
+        });
+
+        await extractedText.save();
+        console.log(`[transcribeAudio] Transcription stored with textId: ${textId}`);
+      } catch (storeError) {
+        console.error('[transcribeAudio] Error storing transcription:', storeError);
+        // Continue even if storage fails - don't break the transcription flow
+      }
+    }
+
     // Track voice transcription usage
     if (req.user?.userId && transcript) {
-      const audioDuration = req.body?.duration ? parseFloat(req.body.duration) : null;
-      const detectedLangKey = transcript
-        ? getLanguageKey(detectLanguageFromText(transcript))
-        : 'es';
-      
+      const audioDuration = duration ? parseFloat(duration) : null;
+
       trackResourceUsage(req.user.userId, 'voiceTranscriptions', 1, {
         audioDuration,
         language: detectedLangKey,
@@ -116,11 +147,6 @@ export const transcribeAudio = async (req, res) => {
         // Don't fail the request if tracking fails
       });
     }
-
-    // Detect language from transcript for response
-    const detectedLangKey = transcript
-      ? getLanguageKey(detectLanguageFromText(transcript))
-      : 'es';
 
     // Map back to locale format for frontend compatibility
     const resolvedLocale = languageProfiles[detectedLangKey]?.locale || 'es-ES';
@@ -151,6 +177,7 @@ export const transcribeAudio = async (req, res) => {
       language: resolvedLocale,
       confidence: null, // OpenAI doesn't provide confidence scores
       response: response, // Include generated response if available
+      textId: textId, // Include textId so frontend knows it was stored
     });
   } catch (error) {
     console.error('[transcribeAudio] Error:', error);

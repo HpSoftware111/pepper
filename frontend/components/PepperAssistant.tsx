@@ -3988,7 +3988,7 @@ export default function PepperAssistant() {
       'border',
       isLight
         ? 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 shadow-[inset_0_2px_4px_rgba(15,23,42,0.06)]'
-        : 'bg-white/10 border-white/20 text-white placeholder-white/60 shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)]',
+        : 'bg-white/10 border-white/20 !text-white placeholder-white/60 shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)]',
       'focus:outline-none',
       isLight ? 'focus:border-slate-300' : 'focus:border-emerald-300',
       isModal

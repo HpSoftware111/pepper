@@ -84,11 +84,6 @@ body[data-theme='light'] textarea:-webkit-autofill:focus {
   -webkit-text-fill-color: #0f172a;
 }
 
-/* Fix for pasted text color in textareas - force black color regardless of theme */
-textarea {
-  color: #000000 !important;
-}
-
 /* Normalize select dropdowns for dark/light themes */
 select {
   background-color: rgba(5, 12, 32, 0.85);
